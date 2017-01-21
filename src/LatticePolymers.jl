@@ -74,7 +74,7 @@ function average_monomer_distance(r::Array{Int64,2})
             s += sqrt(dot(d,d))
         end
     end
-    s/n
+    2.*s/n/(n-1)
 end
 
 """
@@ -200,7 +200,7 @@ function self_digest_without_attraction(
         enz = Nenz
         while enz>0
             #Check neighborhoods of each enzyme for enzymes.
-            n_neigh = n_neighboring_enzymes(enz, r_enz, box, m_enz, L)
+            n_neigh = n_neighboring_particles(enz, r_enz, box, m_enz, L)
 
             #The more enzymes in the direct neigborhood, the higher the probability of digestion.
             if n_neigh>0 

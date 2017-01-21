@@ -1,5 +1,83 @@
 using LatticePolymers
 using Base.Test
 
+procIDs = addprocs(2)
+
 # write your own tests here
-@test 1 == 2
+
+### average_monomer_distance ###
+# a "polymer" of 4 monomers, with monomer i=1,2,3,4 at position (i,i,i) 
+r = [1 1 1
+     2 2 2
+     3 3 3
+     4 4 4]
+@test isapprox(LatticePolymers.average_monomer_distance(r), 2.886751345948129)
+
+### initial_particles_placement ###
+L = 20
+box = zeros(L,L,L)
+N_part = 100
+m_part = 1.
+box, r = LatticePolymers.initial_particles_placement(box, L, N_part, m_part)
+@test size(r) == (N_part, 3)
+@test maximum(r) <= L
+@test minimum(r) >= 1
+@test isapprox(sum(box), N_part)
+s = sum([box[r[i,1],r[i,2],r[i,3]] for i in 1:N_part])
+@test isapprox(s, N_part)
+
+### n_neighboring_particles ###
+L = 12
+box = zeros(L,L,L)
+mark = 1.
+r_parts = [1 1 1
+           1 1 10
+           10 10 10
+           11 10 10
+           1 1 2
+           10 9 10]
+n_parts = size(r_parts)[1]
+[box[r_parts[i,1],r_parts[i,2],r_parts[i,3]] = mark for i in 1:n_parts]
+neigh = [LatticePolymers.n_neighboring_particles(i,r_parts,box,mark,L) for i in 1:n_parts]
+@test neigh == [1, 0, 2, 1, 1, 1]
+
+### self_avoiding_cubic_lattice_random_walk ###
+n = 10
+r = LatticePolymers.self_avoiding_cubic_lattice_random_walk(n)                    
+@test size(r) == (n, 3)
+# all monomers should have distance 1:
+@test [dot(r[i,:]-r[i+1,:],r[i,:]-r[i+1,:]) for i in 1:(n-1)]==ones(Int64,n-1)
+# no two monomers should overlap:
+for i in 1:(n-1)
+    for j in (i+1):n
+@test r[i,:]-r[j,:] != [0 0 0]
+    end
+end 
+
+### self_avoiding_random_walk_in_box ###
+nmonos = 20
+L = 10
+
+# catch error for L < nmonos
+@noinline example() = try
+    LatticePolymers.self_avoiding_random_walk_in_box(nmonos, L)
+    catch
+    return 1
+    end
+@test example() == 1
+
+L = nmonos+1
+box, r = LatticePolymers.self_avoiding_random_walk_in_box(nmonos,L)
+@test size(r) == (nmonos, 3)
+@test nmonos * 100. - nmonos * 4. - 2. <= sum(box) <= nmonos * 100.
+
+### self_digest_without_attraction ###
+L = 3
+box=zeros(L,L,L)
+N_part=27
+m_part=1.
+Nsteps = 10
+box, r = LatticePolymers.initial_particles_placement(box, L, N_part, m_part)
+p_surv = 0. #extremely aggressive self-digest
+n_enz = LatticePolymers.self_digest_without_attraction(Nsteps, box, L, r, N_part, m_part, p_surv) 
+@test n_enz[end]==1 #nothing left except the last enzyme 
