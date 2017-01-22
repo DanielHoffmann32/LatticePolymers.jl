@@ -76,8 +76,34 @@ L = 3
 box=zeros(L,L,L)
 N_part=27
 m_part=1.
-Nsteps = 10
+Nsteps = 20
 box, r = LatticePolymers.initial_particles_placement(box, L, N_part, m_part)
 p_surv = 0. #extremely aggressive self-digest
 n_enz = LatticePolymers.self_digest_without_attraction(Nsteps, box, L, r, N_part, m_part, p_surv) 
-@test n_enz[end]==1 #nothing left except the last enzyme 
+@test n_enz[end]==1 #nothing should be left except the last enzyme 
+
+### MC_particles_around_polymer_1 ###
+nmonos = 10
+L = 12
+N_parts = 10
+m_poly = 1.0
+m_part = 200.0
+N_steps = 10000
+RT = 1.0
+E_contact = 0. #no contact energy
+box, r = LatticePolymers.self_avoiding_random_walk_in_box(nmonos,L,m_poly,E_contact)
+box, r_parts = LatticePolymers.initial_particles_placement(box,L,N_parts,m_part)
+energies, particle_contacts = 
+    LatticePolymers.MC_particles_around_polymer_1(
+        N_steps, box, L, r_parts, N_parts, m_poly, m_part, RT, E_contact
+    )
+@test mean(particle_contacts) < 0.3
+
+E_contact = -10.0 #strong attraction
+box, r = LatticePolymers.self_avoiding_random_walk_in_box(nmonos,L,m_poly,E_contact)
+box, r_parts = LatticePolymers.initial_particles_placement(box,L,N_parts,m_part)
+energies, particle_contacts = 
+    LatticePolymers.MC_particles_around_polymer_1(
+        N_steps, box, L, r_parts, N_parts, m_poly, m_part, RT, E_contact
+    )
+@test mean(particle_contacts) >= 1

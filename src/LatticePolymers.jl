@@ -1,9 +1,15 @@
 module LatticePolymers
 
+using StatPlots, StatsBase, DH32ParallelUtils
+
 # package code goes here
 export average_monomer_distance,
+estimate_Boltzmann_weights,
 initial_particles_placement,
+MC_particles_around_polymer_1,
 n_neighboring_particles,
+n_procs_MC_particles_around_polymer_1,
+process_MC_particles_around_polymer_1,
 self_avoiding_cubic_lattice_random_walk,
 self_avoiding_random_walk_in_box,
 self_digest_without_attraction
@@ -232,7 +238,7 @@ function self_digest_without_attraction(
 end
 
 """
-We place a self-avoiding random walk polymer of length nmonos in a cubic lattice box of length L. Each box position occupied by a monomer will be marked by a value of m_poly (default: 100.). The non-occupied lattice positions neighboring a monomer are assigned an energy value of E (default: -1).
+We place a self-avoiding random walk polymer of length nmonos in a cubic lattice box of length L. Each box position occupied by a monomer will be marked by a value of m_poly. The non-occupied lattice positions neighboring a monomer are assigned an energy value of E.
 
 Input:
 
@@ -251,7 +257,7 @@ Output: box, r
 - r: nmonos x 3 integer array of lattice positions of monomers
     
 """
-function self_avoiding_random_walk_in_box(nmonos::Int64, L::Int64, m_poly::Float64=100., E::Float64=-1.)
+function self_avoiding_random_walk_in_box(nmonos::Int64, L::Int64, m_poly::Float64, E::Float64)
     if nmonos>L
         error("stretched polymer does not fit in box")
     end
@@ -327,8 +333,11 @@ Output: energies, particle_contacts
 """
 function MC_particles_around_polymer_1(
     N_steps::Int64, box::Array{Float64,3}, L::Int64, r_parts::Array{Int64,2}, N_parts::Int64, 
-    m_part::Float64, RT::Float64, E_part_poly_contact::Float64)
-    
+    m_poly::Float64, m_part::Float64, RT::Float64, E_part_poly_contact::Float64)
+
+    if m_part <= m_poly
+        error("m_part must be greater than m_poly")
+    end 
     energies = zeros(N_steps)
     particle_contacts = zeros(Int64,N_steps)
     mark = m_part+7.*E_part_poly_contact #safe indicator for occupied element
@@ -362,5 +371,126 @@ function MC_particles_around_polymer_1(
     end
     energies, particle_contacts
 end
+
+"""
+A complete MC process run with multiple polymers, and for each polymer a MC run with particles. This program can be used to distribute processes over processors.
+
+Input:
+
+- N_polys: number of polymers (i.e. also MC runs) to be generated
+
+- n_monos: number of monomers per polymer
+
+- L: length of cubic lattice box
+
+- burn_in: number of MC steps at the beginning to be discarded
+    
+- rest of input same as for MC_particles_around_polymer_1
+
+Output: mean_monomer_dist, mean_energy, mean_contacts
+
+- mean_monomer_dist: for each polymer the mean monomer distance
+
+- mean_energy: for each MC run, sum of negative values in box (= interaction energies between polymer and particles)
+
+- mean_contacts: mean number contacts between particle per MC run
+"""
+function process_MC_particles_around_polymer_1(
+    N_polys::Int64, n_monos::Int64, L::Int64, N_steps::Int64, burn_in::Int64,
+    m_poly::Float64, E_contact::Float64, N_parts::Int64, m_part::Float64, RT::Float64)
+
+    mean_monomer_dist = zeros(N_polys)
+    mean_energy = zeros(N_polys)
+    mean_contacts = zeros(N_polys)
+
+    for run in 1:N_polys
+        box, r_poly = self_avoiding_random_walk_in_box(n_monos, L, m_poly, E_contact)
+        box, r_parts = initial_particles_placement(box, L, N_parts, m_part)
+        energies, enzyme_contacts = 
+        MC_particles_around_polymer_1(
+        N_steps, box, L, r_parts, N_parts, m_poly, m_part, RT, E_contact
+        )
+        mean_monomer_dist[run] = average_monomer_distance(r_poly)
+        mean_energy[run] = mean(energies[burn_in:end])
+        mean_contacts[run] = mean(enzyme_contacts[burn_in:end])
+    end
+    mean_monomer_dist, mean_energy, mean_contacts
+end
+
+"""
+Distribute MC runs over processors in procIDs. Calls process_MC_particles_around_polymer_1 for each process and collects results.
+
+Input:
+
+- procIDs: int array of process IDs (produces with addprocs())
+
+- rest of input as for process_MC_particles_around_polymer_1.
+
+Output:
+
+- mdist, mene, mcont as process_MC_particles_around_polymer_1
+
+- additionally: array of Boltzmann weights of each element of the other arrays
+    
+"""
+function n_procs_MC_particles_around_polymer_1(
+                                               procIDs::Array{Int64,1},
+                                               N_polys::Int64,
+                                               n_monos::Int64,
+                                               L::Int64,
+                                               N_steps::Int64,
+                                               burn_in::Int64,
+                                               m_poly::Float64,
+    E_contact::Float64,
+    N_parts::Int64,
+    m_part::Float64,
+    RT::Float64)
+
+    n_procs = length(procIDs)
+    N_poly_i = split_int_lengths(N_polys, n_procs)
+    refs = Array(Future, n_procs)
+    for i_proc in 1:n_procs
+        refs[i_proc] = @spawnat procIDs[i_proc] process_MC_particles_around_polymer_1(
+                                                                                      N_poly_i[i_proc],
+                                                                                      n_monos,
+                                                                                      L,
+                                                                                      N_steps,
+                                                                                      burn_in,
+        m_poly, E_contact, N_parts, m_part, RT)
+    end
+
+    mdist, mene, mcont = fetch(refs[1])
+    for i_proc in 2:n_procs
+        md,me,mc = fetch(refs[i_proc])
+        append!(mdist,md)    
+        append!(mene,me)    
+        append!(mcont,mc)
+    end
+    
+    mdist, mene, mcont, estimate_Boltzmann_weights(mene, RT)
+end
+
+"""
+For a given sample of N energies (assumed to be representative), estimate the Boltzmann weights of each of the N states.
+
+Input:
+
+- energies: 1D array of energies (floats)
+
+- RT: gas constant times temperature in same units as energy
+
+Output:
+
+- array of N Boltzmann weights
+
+"""
+function estimate_Boltzmann_weights(
+                                     energies::Array{Float64,1},
+                                     RT::Float64
+                                     )
+    N_energies = length(energies)
+    Z = sum(exp(-energies[1:N_energies]/RT))
+    exp(-energies[1:N_energies]/RT)/Z
+end 
 
 end # module
