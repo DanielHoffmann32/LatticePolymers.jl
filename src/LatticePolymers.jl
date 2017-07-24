@@ -489,8 +489,8 @@ function estimate_Boltzmann_weights(
                                      RT::Float64
                                      )
     N_energies = length(energies)
-    Z = sum(exp(-energies[1:N_energies]/RT))
-    exp(-energies[1:N_energies]/RT)/Z
+    Z = sum(exp.(-energies[1:N_energies]/RT))
+    exp.(-energies[1:N_energies]/RT)/Z
 end 
 
 end # module
