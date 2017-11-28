@@ -107,3 +107,12 @@ energies, particle_contacts =
         N_steps, box, L, r_parts, N_parts, m_poly, m_part, RT, E_contact
     )
 @test mean(particle_contacts) >= 1
+
+# estimate_Boltzmann_weights
+N_energies = 100
+energies = ones(N_energies)
+RT = 1.
+E = exp(-1./1.)
+Z = N_energies*E
+bf = E/Z
+@test sum(estimate_Boltzmann_weights(energies, RT) - ones(N_energies).*bf)<1.e-15

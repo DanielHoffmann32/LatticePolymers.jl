@@ -391,7 +391,7 @@ Output: mean_monomer_dist, mean_energy, mean_contacts
 
 - mean_monomer_dist: for each polymer the mean monomer distance
 
-- mean_energy: for each MC run, sum of negative values in box (= interaction energies between polymer and particles)
+- mean_energy: mean energy per MC run (= mean interaction energy between polymer and particles)
 
 - mean_contacts: mean number contacts between particle per MC run
 """
