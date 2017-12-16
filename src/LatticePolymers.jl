@@ -332,10 +332,11 @@ Output: energies, particle_contacts
 
 - singlets: integer array with number of particles binding the polymer with one side at each MC step.
 
+- atol (optional, named, default 1.0e-5): tolerance in comparison of energy value at box positions with standard interaction energy
 """
 function MC_particles_around_polymer_1(
     N_steps::Int64, box::Array{Float64,3}, L::Int64, r_parts::Array{Int64,2}, N_parts::Int64, 
-    m_poly::Float64, m_part::Float64, RT::Float64, E_part_poly_contact::Float64)
+    m_poly::Float64, m_part::Float64, RT::Float64, E_part_poly_contact::Float64; atol::Real=1.0e-5)
 
     if m_part <= m_poly
         error("m_part must be greater than m_poly")
@@ -369,8 +370,10 @@ function MC_particles_around_polymer_1(
         n_singlets = 0
         for part in 1:N_parts
             n_neigh += n_neighboring_particles(part, r_parts, box, mark, L)
+
+            #dE is the *interaction* energy value the particle "part" has at its position:
             dE = box[r_parts[part,1],r_parts[part,2],r_parts[part,3]]-m_part
-            if (dE == E_part_poly_contact)
+            if isapprox(dE,E_part_poly_contact,atol=atol)
                 n_singlets += 1
             end
             E_total += dE
