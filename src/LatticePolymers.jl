@@ -329,7 +329,9 @@ Output: energies, particle_contacts
 - energies: float array with total energy of system at each MC step
 
 - particle_contacts: integer array with number of contacts between particles at each MC step.
-    
+
+- singlets: integer array with number of particles binding the polymer with one side at each MC step.
+
 """
 function MC_particles_around_polymer_1(
     N_steps::Int64, box::Array{Float64,3}, L::Int64, r_parts::Array{Int64,2}, N_parts::Int64, 
@@ -340,6 +342,8 @@ function MC_particles_around_polymer_1(
     end 
     energies = zeros(N_steps)
     particle_contacts = zeros(Int64,N_steps)
+    singlets = zeros(Int64,N_steps)
+    
     mark = m_part+7.*E_part_poly_contact #safe indicator for occupied element
     
     for step in 1:N_steps
@@ -362,14 +366,20 @@ function MC_particles_around_polymer_1(
         #count number of particle pairs (pairs of particles that touch)
         n_neigh = 0
         E_total = 0.
+        n_singlets = 0
         for part in 1:N_parts
             n_neigh += n_neighboring_particles(part, r_parts, box, mark, L)
-            E_total += box[r_parts[part,1],r_parts[part,2],r_parts[part,3]]-m_part
+            dE = box[r_parts[part,1],r_parts[part,2],r_parts[part,3]]-m_part
+            if (dE == E_part_poly_contact)
+                n_singlets += 1
+            end
+            E_total += dE
         end
         particle_contacts[step] = n_neigh / 2
-        energies[step] = E_total        
+        energies[step] = E_total
+        singlets[step] = n_singlets
     end
-    energies, particle_contacts
+    energies, particle_contacts, singlets
 end
 
 """
@@ -394,6 +404,9 @@ Output: mean_monomer_dist, mean_energy, mean_contacts
 - mean_energy: mean energy per MC run (= mean interaction energy between polymer and particles)
 
 - mean_contacts: mean number contacts between particle per MC run
+
+- mean_singlets: mean number of particles bound to exactly one monomer per MC run
+
 """
 function process_MC_particles_around_polymer_1(
     N_polys::Int64, n_monos::Int64, L::Int64, N_steps::Int64, burn_in::Int64,
@@ -402,19 +415,21 @@ function process_MC_particles_around_polymer_1(
     mean_monomer_dist = zeros(N_polys)
     mean_energy = zeros(N_polys)
     mean_contacts = zeros(N_polys)
+    mean_singlets = zeros(N_polys)
 
     for run in 1:N_polys
         box, r_poly = self_avoiding_random_walk_in_box(n_monos, L, m_poly, E_contact)
         box, r_parts = initial_particles_placement(box, L, N_parts, m_part)
-        energies, enzyme_contacts = 
+        energies, enzyme_contacts, singlets = 
         MC_particles_around_polymer_1(
         N_steps, box, L, r_parts, N_parts, m_poly, m_part, RT, E_contact
         )
         mean_monomer_dist[run] = average_monomer_distance(r_poly)
         mean_energy[run] = mean(energies[burn_in:end])
         mean_contacts[run] = mean(enzyme_contacts[burn_in:end])
+        mean_singlets[run] = mean(singlets[burn_in:end])
     end
-    mean_monomer_dist, mean_energy, mean_contacts
+    mean_monomer_dist, mean_energy, mean_contacts, mean_singlets
 end
 
 """
@@ -428,7 +443,7 @@ Input:
 
 Output:
 
-- mdist, mene, mcont as process_MC_particles_around_polymer_1
+- mdist, mene, mcont, msing as process_MC_particles_around_polymer_1
 
 - additionally: array of Boltzmann weights of each element of the other arrays
     
@@ -459,15 +474,16 @@ function n_procs_MC_particles_around_polymer_1(
         m_poly, E_contact, N_parts, m_part, RT)
     end
 
-    mdist, mene, mcont = fetch(refs[1])
+    mdist, mene, mcont, msing = fetch(refs[1])
     for i_proc in 2:n_procs
-        md,me,mc = fetch(refs[i_proc])
+        md,me,mc,ms = fetch(refs[i_proc])
         append!(mdist,md)    
         append!(mene,me)    
         append!(mcont,mc)
+        append!(msing,ms)
     end
     
-    mdist, mene, mcont, estimate_Boltzmann_weights(mene, RT)
+    mdist, mene, mcont, msing, estimate_Boltzmann_weights(mene, RT)
 end
 
 """
