@@ -4,6 +4,7 @@ using StatPlots, StatsBase, DH32ParallelUtils
 
 # package code goes here
 export average_monomer_distance,
+    end_end_distance,
 estimate_Boltzmann_weights,
 initial_particles_placement,
 MC_particles_around_polymer_1,
@@ -81,6 +82,22 @@ function average_monomer_distance(r::Array{Int64,2})
         end
     end
     2.*s/n/(n-1)
+end
+
+"""
+Input:
+
+- n x 3 array r of integer coordinates of lattice polymer of length n
+
+Ouput:
+
+- end-end distance in lattice units
+
+"""
+function end_end_distance(r::Array{Int64,2})
+    n = length(r[:,1])
+    d = r[n,:]-r[1,:]
+    sqrt(dot(d,d))
 end
 
 """
