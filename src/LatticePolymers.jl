@@ -74,10 +74,8 @@ Output:
 
 - w_rosenbl: Rosenbluth weight of walk
 
-- max_trials (optional): maximum number of attempts to attach a monomer
-
 """
-function self_avoiding_cubic_lattice_random_walk_rosenbluth(n::Int64, max_trials::Int64=100)
+function self_avoiding_cubic_lattice_random_walk_rosenbluth(n::Int64)
     if n<3
         error("n should be at least 3.")
     end
@@ -87,8 +85,7 @@ function self_avoiding_cubic_lattice_random_walk_rosenbluth(n::Int64, max_trials
     w_rosenbl = 1.0 #Rosenbluth weight
     r[2,:] = [1, 0, 0] #first monomer at 0,0,0; second monomer at 1,0,0
     i = 3 #we start with third monomer
-    trials = 0
-    
+
     while (i<=n) 
         #add a new monomer in one of 5 random directions (away from previous monomer)
         
@@ -110,9 +107,7 @@ function self_avoiding_cubic_lattice_random_walk_rosenbluth(n::Int64, max_trials
 
         collis = find(dists .== 1) #indexes of monomers potentially colliding
         w = 5-length(collis)
-        if w==0 #no free space around monomer i-1 => retract to previous
-            i -= 1
-        else
+        if w != 0 #we have free space around monomer
             for k in collis
                 dr = r[k,:]-r[i-1,:]
                 for j in 1:length(delta_ix)
@@ -125,13 +120,8 @@ function self_avoiding_cubic_lattice_random_walk_rosenbluth(n::Int64, max_trials
             r[i,:] = r[i-1,:] + Delta[rand(delta_ix)]
             w_rosenbl *= w
             i += 1
-        end
-        trials += 1
-
-        #if max_trials is reached, start new attempt to build SAW
-        if (trials == max_trials)
+        else #w == 0, i.e. no free space => start a new SAW
             i = 3
-            trials = 0
             w_rosenbl = 1.0
         end
     end
