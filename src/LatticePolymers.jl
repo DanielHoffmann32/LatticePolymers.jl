@@ -72,7 +72,7 @@ Output:
 
 - r: 3D self-avoiding random walk on a cubic lattice with coordinates of monomers in an n x 3 array of integers [x_i, y_i, z_i]
 
-- w_rosenbl: Rosenbluth weight of walk
+- w_rosenbluth: Rosenbluth weight of walk
 
 """
 function self_avoiding_cubic_lattice_random_walk_rosenbluth(n::Int64)
@@ -82,7 +82,7 @@ function self_avoiding_cubic_lattice_random_walk_rosenbluth(n::Int64)
     Delta = [[1,0,0],[0,1,0],[0,0,1],[-1,0,0],[0,-1,0],[0,0,-1]]
     r = zeros(Int64, n, 3)
     
-    w_rosenbl = 1.0 #Rosenbluth weight
+    w_rosenbluth = 1.0 #Rosenbluth weight
     r[2,:] = [1, 0, 0] #first monomer at 0,0,0; second monomer at 1,0,0
     i = 3 #we start with third monomer
 
@@ -118,14 +118,14 @@ function self_avoiding_cubic_lattice_random_walk_rosenbluth(n::Int64)
                 end
             end
             r[i,:] = r[i-1,:] + Delta[rand(delta_ix)]
-            w_rosenbl *= w
+            w_rosenbluth *= w
             i += 1
-        else #w == 0, i.e. no free space => start a new SAW
+        else #w == 0, i.e. blind alley => start a new SAW
             i = 3
-            w_rosenbl = 1.0
+            w_rosenbluth = 1.0
         end
     end
-    r, w_rosenbl
+    r, w_rosenbluth
 end
 
 """
@@ -338,7 +338,9 @@ Output: box, r
 - box: cubic lattice box (3D float array) with positions occupied by monomers marked (m_poly, E)
 
 - r: nmonos x 3 integer array of lattice positions of monomers
-    
+
+- w_rosenbluth: Rosenbluth weight of polymer conformation
+
 """
 function self_avoiding_random_walk_in_box(nmonos::Int64, L::Int64, m_poly::Float64, E::Float64)
     if nmonos>L
@@ -348,7 +350,7 @@ function self_avoiding_random_walk_in_box(nmonos::Int64, L::Int64, m_poly::Float
     box = zeros(Float64,L,L,L)
 
     #put polymer into box
-    r = self_avoiding_cubic_lattice_random_walk(nmonos)
+    r, w_rosenbluth = self_avoiding_cubic_lattice_random_walk_rosenbluth(nmonos)
     Lhalf = L/2
     cx = convert(Int64,round(mean(r[:,1])-Lhalf))
     cy = convert(Int64,round(mean(r[:,2])-Lhalf))
@@ -383,7 +385,7 @@ function self_avoiding_random_walk_in_box(nmonos::Int64, L::Int64, m_poly::Float
         end
     end
     
-    box, r
+    box, r, w_rosenbluth
 end
 
 """
@@ -504,11 +506,13 @@ Output: mean_monomer_dist, mean_energy, mean_contacts
 
 - mean_bound: mean number of particles bound to polymer per MC run
 
+- w_rosenbluth: array of Rosenbluth weights of all polymers
 """
 function process_MC_particles_around_polymer_1(
     N_polys::Int64, n_monos::Int64, L::Int64, N_steps::Int64, burn_in::Int64,
     m_poly::Float64, E_contact::Float64, N_parts::Int64, m_part::Float64, RT::Float64)
 
+    w_rosenbluth = zeros(N_polys)
     mean_monomer_dist = zeros(N_polys)
     mean_energy = zeros(N_polys)
     mean_contacts = zeros(N_polys)
@@ -516,7 +520,8 @@ function process_MC_particles_around_polymer_1(
     mean_bound = zeros(N_polys)
 
     for run in 1:N_polys
-        box, r_poly = self_avoiding_random_walk_in_box(n_monos, L, m_poly, E_contact)
+        box, r_poly, w_rosenbluth[run] =
+            self_avoiding_random_walk_in_box(n_monos, L, m_poly, E_contact)
         box, r_parts = initial_particles_placement(box, L, N_parts, m_part)
         energies, enzyme_contacts, singlets, bound = 
         MC_particles_around_polymer_1(
@@ -528,7 +533,7 @@ function process_MC_particles_around_polymer_1(
         mean_singlets[run] = mean(singlets[burn_in:end])
         mean_bound[run] = mean(bound[burn_in:end])
     end
-    mean_monomer_dist, mean_energy, mean_contacts, mean_singlets, mean_bound
+    mean_monomer_dist, mean_energy, mean_contacts, mean_singlets, mean_bound, w_rosenbluth
 end
 
 """
@@ -542,7 +547,7 @@ Input:
 
 Output:
 
-- mdist, mene, mcont, msing, mbound as process_MC_particles_around_polymer_1
+- mdist, mene, mcont, msing, mbound, wrosen as process_MC_particles_around_polymer_1
 
 - additionally: array of Boltzmann weights of each element of the other arrays
     
@@ -573,17 +578,18 @@ function n_procs_MC_particles_around_polymer_1(
         m_poly, E_contact, N_parts, m_part, RT)
     end
 
-    mdist, mene, mcont, msing, mbound = fetch(refs[1])
+    mdist, mene, mcont, msing, mbound, wrosen = fetch(refs[1])
     for i_proc in 2:n_procs
-        md,me,mc,ms,mb = fetch(refs[i_proc])
+        md,me,mc,ms,mb,wr = fetch(refs[i_proc])
         append!(mdist,md)    
         append!(mene,me)    
         append!(mcont,mc)
         append!(msing,ms)
         append!(mbound,mb)
+        append!(wrosen,wr)
     end
     
-    mdist, mene, mcont, msing, mbound, estimate_Boltzmann_weights(mene, RT)
+    mdist, mene, mcont, msing, mbound, estimate_Boltzmann_weights(mene, RT), wrosen
 end
 
 """
