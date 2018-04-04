@@ -5,16 +5,18 @@ using StatPlots, StatsBase, DH32ParallelUtils
 # package code goes here
 export average_monomer_distance,
     end_end_distance,
-estimate_Boltzmann_weights,
-initial_particles_placement,
-MC_particles_around_polymer_1,
-n_neighboring_particles,
-n_procs_MC_particles_around_polymer_1,
-process_MC_particles_around_polymer_1,
-self_avoiding_cubic_lattice_random_walk,
-self_avoiding_cubic_lattice_random_walk_rosenbluth,
-self_avoiding_random_walk_in_box,
-self_digest_without_attraction
+    estimate_Boltzmann_weights,
+    initial_particles_placement,
+    MC_particles_around_polymer_1,
+    n_neighboring_particles,
+    n_procs_MC_particles_around_polymer_1,
+    print_polymer_particle_pdb,
+    process_MC_particles_around_polymer_1,
+    self_avoiding_cubic_lattice_random_walk,
+    self_avoiding_cubic_lattice_random_walk_rosenbluth,
+    self_avoiding_random_walk_in_box,
+    self_digest_without_attraction,
+    single_MC_simulation_polymer_particle
 
 """
 Input:
@@ -389,6 +391,118 @@ function self_avoiding_random_walk_in_box(nmonos::Int64, L::Int64, m_poly::Float
 end
 
 """
+Function single_MC_simulation_polymer_particle 
+
+This function runs a complete single MC simulation, including setting up the box with polymer and initializing it with particles. It gives back the changed box and structures, plus all the sampled data (energies, ...).
+
+MC simulation of N_steps sweeps of N_parts particles moving around a fixed polymer. If a monomer of the polymer and and a particle are lattice neighbors, they interact with an energy of E_part_poly_contact. The simulation is a Metropolis MC simulation at a value of RT of gas constant times temperature (same units as E_part_poly_contact). Particles are not allowed to overlap with other particles or polymer.
+
+Input:
+
+- n_monos: number of monomers in polymer.
+
+- N_parts: number of particles.
+
+- L: length of lattice box.
+
+- m_poly: lattice box value to mark each monomer.
+
+- m_part: marker value for a particle at a lattice box position.
+
+- RT: gas constant times temperature in the same units as the interaction energy E_part_poly_contact.
+
+- E_contact: interaction energy between a monomer of the polymer and a neighboring particle.
+
+- N_steps: number of MC sweeps.
+
+- atol (optional, named, default 1.0e-5): tolerance in comparison of energy value at box positions with standard interaction energy
+
+Output: 
+
+- box: simulation box
+
+- r_poly: polymer coordinates in simulation box
+
+- r_parts: particle coordinates in simulation box
+
+- w_rosen: Rosenbluth weight (single number) for polymer conformation.
+
+- particle_contacts: integer array with number of contacts between particles at each MC step.
+
+- energies: float array with total energy of system at each MC step.
+
+- singlets: integer array with number of particles binding the polymer with one side at each MC step.
+
+- bound: integer array with number of particles bound to the polymer.
+
+
+"""
+function single_MC_simulation_polymer_particle(n_monos::Int64, N_parts::Int64, L::Int64, m_poly::Float64, m_part::Float64, RT::Float64, E_contact::Float64, N_steps::Int64; atol::Real=1.0e-5)
+    #make box
+    box, r_poly, w_rosen = self_avoiding_random_walk_in_box(n_monos, L, m_poly, E_contact)
+    box, r_parts = initial_particles_placement(box, L, N_parts, m_part)
+
+    #simulate
+    energies, contacts, singlets, bound = MC_particles_around_polymer_1(N_steps, box, L, r_parts, N_parts, m_poly, m_part, RT, E_contact)
+    box, r_poly, r_parts, w_rosen, contacts, energies, singlets, bound
+end
+
+"""
+Function print_polymer_particle_pdb
+
+Generates a PDB file from a polymer and particle set.
+
+Input:
+
+- filename: name of output pdb file
+
+- r_poly: lattice monomer coordinates
+
+- r_parts: lattice particle coordinates
+
+Output:
+
+Writes a PDB file to the named file. Overwriting.
+
+"""
+function print_polymer_particle_pdb(filename::String, r_poly::Array{Int64,2}, r_parts::Array{Int64,2})
+    pdb=open(filename,"w")
+    n_monos = size(r_poly)[1]
+    N_parts = size(r_parts)[1]    
+    for mono in 1:n_monos
+        @printf(pdb,"%-6s%5d %4s%1s%3s%1s %4d%1s   %8.3f%8.3f%8.3f\n", 
+                "ATOM  ", 
+                mono, 
+                " CA ", 
+                " ",
+                " C ", 
+                "C", 
+                mono,
+                " ",
+                1.3*r_poly[mono,1], #multiplication by factor > 1 to avoid drawing too many bonds in pymol
+                1.3*r_poly[mono,2],
+                1.3*r_poly[mono,3])
+    end
+    println(pdb, "TERM")
+    for enz in 1:N_parts
+        @printf(pdb, "%-6s%5d %4s%1s%3s%1s %4d%1s   %8.3f%8.3f%8.3f\n", 
+                "HETATM", 
+                enz+n_monos, 
+                "  P ", 
+                " ",
+                " P ", 
+                "P", 
+                enz+n_monos,
+                " ",
+                1.3*r_parts[enz,1],
+                1.3*r_parts[enz,2],
+                1.3*r_parts[enz,3])
+    end
+    println(pdb, "END")
+    close(pdb)
+end
+
+"""
 MC simulation of N_steps sweeps of N_parts particles moving around a fixed polymer. If a monomer of the polymer and and a particle are lattice neighbors, they interact with an energy of E_part_poly_contact. The simulation is a Metropolis MC simulation at a value of RT of gas constant times temperature (same units as E_part_poly_contact). Particles are not allowed to overlap with other particles or polymer.
 
 Input:
@@ -410,6 +524,9 @@ Input:
 - E_part_poly_contact: interaction energy between a monomer of the polymer and a neighboring particle.
 
 - atol (optional, named, default 1.0e-5): tolerance in comparison of energy value at box positions with standard interaction energy
+
+- return_parts (optional, named, default false): should particle array with coordinates be returned?
+
 
 Output: 
 
@@ -477,6 +594,7 @@ function MC_particles_around_polymer_1(
         bound[step] = n_bound
     end
     energies, particle_contacts, singlets, bound
+
 end
 
 """
