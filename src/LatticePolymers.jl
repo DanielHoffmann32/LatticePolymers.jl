@@ -12,13 +12,14 @@ export average_monomer_distance,
     n_procs_MC_particles_around_polymer_1,
     print_polymer_particle_pdb,
     process_MC_particles_around_polymer_1,
-    self_avoiding_cubic_lattice_random_walk,
     self_avoiding_cubic_lattice_random_walk_rosenbluth,
     self_avoiding_random_walk_in_box,
     self_digest_without_attraction,
     single_MC_simulation_polymer_particle
 
 """
+Does not provide Rosenbluth weights!
+
 Input:
 
 - number n of monomers (at least 3)
