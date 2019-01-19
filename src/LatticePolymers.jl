@@ -108,7 +108,7 @@ function self_avoiding_cubic_lattice_random_walk_rosenbluth(n::Int64)
         #these distances are either =1 (do not go there with next monomer) ...
         #... or >1 (=possibilities for next monomer)
 
-        collis = find(dists .== 1) #indexes of monomers potentially colliding
+        collis = findall(dists .== 1) #indexes of monomers potentially colliding
         w = 5-length(collis)
         if w != 0 #we have free space around monomer
             for k in collis
