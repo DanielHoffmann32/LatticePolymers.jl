@@ -1,6 +1,6 @@
 module LatticePolymers
 
-using StatPlots, StatsBase, DH32ParallelUtils
+using StatPlots, StatsBase, DH32ParallelUtils, Printf
 
 # package code goes here
 export average_monomer_distance,
