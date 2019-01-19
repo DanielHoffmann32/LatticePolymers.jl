@@ -471,7 +471,7 @@ function print_polymer_particle_pdb(filename::String, r_poly::Array{Int64,2}, r_
     n_monos = size(r_poly)[1]
     N_parts = size(r_parts)[1]    
     for mono in 1:n_monos
-        @printf(pdb,"%-6s%5d %4s%1s%3s%1s %4d%1s   %8.3f%8.3f%8.3f\n", 
+        Printf.@printf(pdb,"%-6s%5d %4s%1s%3s%1s %4d%1s   %8.3f%8.3f%8.3f\n", 
                 "ATOM  ", 
                 mono, 
                 " CA ", 
@@ -486,7 +486,7 @@ function print_polymer_particle_pdb(filename::String, r_poly::Array{Int64,2}, r_
     end
     println(pdb, "TERM")
     for enz in 1:N_parts
-        @printf(pdb, "%-6s%5d %4s%1s%3s%1s %4d%1s   %8.3f%8.3f%8.3f\n", 
+        Printf.@printf(pdb, "%-6s%5d %4s%1s%3s%1s %4d%1s   %8.3f%8.3f%8.3f\n", 
                 "HETATM", 
                 enz+n_monos, 
                 "  P ", 
