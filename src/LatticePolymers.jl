@@ -104,7 +104,7 @@ function self_avoiding_cubic_lattice_random_walk_rosenbluth(n::Int64)
             end
         end
 
-        dists = sum(abs.(r[1:(i-3),:] .- r[i-1,:]'),2) #the array of distances
+        dists = sum(abs.(r[1:(i-3),:] .- r[i-1,:]'), dims=2) #the array of distances
         #these distances are either =1 (do not go there with next monomer) ...
         #... or >1 (=possibilities for next monomer)
 
