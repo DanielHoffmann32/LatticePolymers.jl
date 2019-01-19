@@ -112,7 +112,7 @@ function self_avoiding_cubic_lattice_random_walk_rosenbluth(n::Int64)
         w = 5-length(collis)
         if w != 0 #we have free space around monomer
             for k in collis
-                dr = r[k,:]-r[i-1,:]
+                dr = r[k,:].-r[i-1,:]
                 for j in 1:length(delta_ix)
                     if Delta[delta_ix[j]] == dr
                         deleteat!(delta_ix,j)

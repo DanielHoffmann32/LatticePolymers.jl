@@ -1,5 +1,5 @@
 using LatticePolymers
-using Test
+using Test, Distributed, LinearAlgebra
 
 procIDs = addprocs(2)
 
@@ -60,14 +60,16 @@ L = 10
 
 # catch error for L < nmonos
 @noinline example() = try
-    LatticePolymers.self_avoiding_random_walk_in_box(nmonos, L)
+    LatticePolymers.self_avoiding_random_walk_in_box(nmonos, L, m_poly, E)
     catch
     return 1
     end
 @test example() == 1
 
+m_poly = 1.0
+E_contact = 0.0
 L = nmonos+1
-box, r = LatticePolymers.self_avoiding_random_walk_in_box(nmonos,L)
+box, r = LatticePolymers.self_avoiding_random_walk_in_box(nmonos,L,m_poly,E_contact)
 @test size(r) == (nmonos, 3)
 @test nmonos * 100. - nmonos * 4. - 2. <= sum(box) <= nmonos * 100.
 
