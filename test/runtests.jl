@@ -1,5 +1,5 @@
 using LatticePolymers
-using Test, Distributed, LinearAlgebra
+using Test, Distributed, LinearAlgebra, Statistics
 
 procIDs = addprocs(2)
 
@@ -66,12 +66,12 @@ L = 10
     end
 @test example() == 1
 
-m_poly = 1.0
+m_poly = 100.0
 E_contact = 0.0
 L = nmonos+1
 box, r = LatticePolymers.self_avoiding_random_walk_in_box(nmonos,L,m_poly,E_contact)
 @test size(r) == (nmonos, 3)
-@test nmonos * 100. - nmonos * 4. - 2. <= sum(box) <= nmonos * 100.
+@test nmonos * 100.0 - nmonos * 4.0 - 2.0 <= sum(box) <= nmonos * 100.0
 
 ### self_digest_without_attraction ###
 L = 3
@@ -114,7 +114,7 @@ energies, particle_contacts =
 N_energies = 100
 energies = ones(N_energies)
 RT = 1.
-E = exp(-1./1.)
+E = exp(-1.0/1.0)
 Z = N_energies*E
 bf = E/Z
 @test sum(estimate_Boltzmann_weights(energies, RT) - ones(N_energies).*bf)<1.e-15
