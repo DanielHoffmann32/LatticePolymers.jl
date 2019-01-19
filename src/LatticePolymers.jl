@@ -143,14 +143,14 @@ Ouput:
 """
 function average_monomer_distance(r::Array{Int64,2})
     n = length(r[:,1])
-    s = 0.
+    s = 0.0
     for i in 2:n
         for j in 1:(i-1)
             d = r[i,:]-r[j,:]
             s += sqrt(dot(d,d))
         end
     end
-    2.*s/n/(n-1)
+    2.0*s/n/(n-1)
 end
 
 """
@@ -201,7 +201,7 @@ function initial_particles_placement(box::Array{Float64,3}, L::Int64, N_part::In
         placed = false
         while placed == false
             x,y,z=rand(1:L,3)
-            if box[x,y,z]<=0. #every empty position (=0) or position with E<0 is considered
+            if box[x,y,z]<=0.0 #every empty position (=0) or position with E<0 is considered
                 box[x,y,z]+=m_part
                 r_part[part,:] = [x,y,z]
                 placed=true
@@ -297,7 +297,7 @@ function self_digest_without_attraction(
             #The more enzymes in the direct neigborhood, the higher the probability of digestion.
             if n_neigh>0 
                 if rand()>p_surv^n_neigh #digest -> remove 1 enzyme
-                    box[r_enz[enz,1],r_enz[enz,2],r_enz[enz,3]]=0. #remove enzyme marker from box
+                    box[r_enz[enz,1],r_enz[enz,2],r_enz[enz,3]]=0.0 #remove enzyme marker from box
                     r_enz = vcat(r_enz[1:(enz-1),:],r_enz[(enz+1):end,:]) #remove enzyme from array
                     Nenz -= 1
                 end
@@ -309,8 +309,8 @@ function self_digest_without_attraction(
         for enz in 1:Nenz
             xtry,ytry,ztry=rand(1:L,3)
             x,y,z=r_enz[enz,:]
-            box[x,y,z] = 0. #the old position is also an option
-            if box[xtry,ytry,ztry]==0. #trial volume free
+            box[x,y,z] = 0.0 #the old position is also an option
+            if box[xtry,ytry,ztry]==0.0 #trial volume free
                 box[xtry,ytry,ztry]=m_enz #move enz. there
                 r_enz[enz,:] = [xtry,ytry,ztry]
             else
@@ -552,7 +552,7 @@ function MC_particles_around_polymer_1(
     singlets = zeros(Int64,N_steps)
     bound = zeros(Int64,N_steps)
     
-    mark = m_part+7.*E_part_poly_contact #safe indicator for occupied element
+    mark = m_part+7.0*E_part_poly_contact #safe indicator for occupied element
     
     for step in 1:N_steps
 
@@ -560,7 +560,7 @@ function MC_particles_around_polymer_1(
         for part in 1:N_parts
             xtry,ytry,ztry=rand(1:L,3)
             E_new = box[xtry,ytry,ztry]
-            if E_new<=0. #space available => try move
+            if E_new<=0.0 #space available => try move
                 x,y,z=r_parts[part,:]
                 E_old = box[x,y,z]-m_part
                 if rand()<exp(-(E_new-E_old)/RT)
@@ -573,7 +573,7 @@ function MC_particles_around_polymer_1(
         
         #count number of particle pairs (pairs of particles that touch)
         n_neigh = 0
-        E_total = 0.
+        E_total = 0.0
         n_singlets = 0
         n_bound = 0
         for part in 1:N_parts
@@ -581,7 +581,7 @@ function MC_particles_around_polymer_1(
 
             #dE is the *interaction* energy value the particle "part" has at its position:
             dE = box[r_parts[part,1],r_parts[part,2],r_parts[part,3]]-m_part
-            if !isapprox(dE, 0., atol=atol)
+            if !isapprox(dE, 0.0, atol=atol)
                 n_bound += 1 # particle is bound
                 if isapprox(dE,E_part_poly_contact,atol=atol)
                     n_singlets += 1 # particle is singly bound
