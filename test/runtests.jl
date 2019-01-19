@@ -1,5 +1,5 @@
 using LatticePolymers
-using Base.Test
+using Test
 
 procIDs = addprocs(2)
 
