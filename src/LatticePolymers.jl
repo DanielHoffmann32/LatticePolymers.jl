@@ -686,7 +686,7 @@ function n_procs_MC_particles_around_polymer_1(
 
     n_procs = length(procIDs)
     N_poly_i = split_int_lengths(N_polys, n_procs)
-    refs = Array{Future}(n_procs)
+    refs = Array{Future,n_procs}
     for i_proc in 1:n_procs
         refs[i_proc] = @spawnat procIDs[i_proc] process_MC_particles_around_polymer_1(
                                                                                       N_poly_i[i_proc],
